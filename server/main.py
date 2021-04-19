@@ -10,7 +10,7 @@ def main(serv_sock: socket.socket, udp: bool = False):
         while True:
             try:
                 data, address = serv_sock.recvfrom(1024)
-                print(data)
+                print("Přijmut balíček, odesílám přes UDP")
                 serv_sock.sendto(data, address)
             except ConnectionResetError:
                 pass
@@ -18,7 +18,7 @@ def main(serv_sock: socket.socket, udp: bool = False):
         while True:
             data = serv_sock.recv(1024)
             if not data: break
-            print(data)
+            print("Přijmut balíček, odesílám přes TCP")
             serv_sock.send(data)
         serv_sock.close()
 

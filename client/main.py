@@ -68,7 +68,7 @@ def tcp_start():
 
 
 def do_big():
-    """Inicializuje samotný test"""
+    """Zeptá se na formu testu, který bude probíhat"""
     question = "Vyberte testovací mód:" \
                "\n1 - Množství velkých souborů" \
                "\n2 - Množství malých souborů"
@@ -128,7 +128,7 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
             client_soc.send(f)
         data: bytes = client_soc.recv(4096)
         i = i + 1
-        print(i/9999*100, "%")
+        print(int(i/9999*1000)/10, "%")
         if f != data:
             e = e + 1
     end_time = datetime.now()
@@ -144,28 +144,34 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
 
 
 def start2(client_soc: socket.socket, udp: bool = False, address=None):
+    """Funkce pro odeslání 100,000 balíčků s vyplněným jedním charakterem"""
     f = "1".encode('utf-8')
     j = 0
     e = 0
+    if udp:
+        client_soc.settimeout(2.0)
     start_time = datetime.now()
-    for i in range(10000000):
+    for i in range(100000):
         if udp:
             client_soc.sendto(f, address)
         else:
             client_soc.send(f)
-        print(int(i/10000000*1000)/10, "%")
-        data: bytes = client_soc.recv(4096)
-        j = j + 1
-        if data != f:
+        print(int(i/100000*1000)/10, "%")
+        try:
+            data: bytes = client_soc.recv(4096)
+            j = j + 1
+            if data != f:
+                e = e + 1
+        except socket.timeout:
             e = e + 1
     end_time = datetime.now()
-    print("Celkem bylo přeneseno", "10,000,000", "balíčků")
+    print("Celkem bylo přeneseno", "100,000", "balíčků")
     if udp:
         print("Pomocí UDP")
     else:
         print("Pomocí TCP")
-    print("Z celkových", 10000000, "balíčků dorazilo", e, "poškozených")
-    print("To je chybovost", e / 10000000 * 100, "%")
+    print("Z celkových", 100000, "balíčků dorazilo", e, "poškozených")
+    print("To je chybovost", e / 100000 * 100, "%")
     print("Celkový spotřebovaný čas činí", end_time - start_time)
     input("Pro opuštění programu stiskněte Enter")
 
