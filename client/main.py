@@ -2,7 +2,7 @@ import socket
 import os
 from datetime import datetime
 
-DEBUG = True
+DEBUG = False
 
 """
 ###################################
