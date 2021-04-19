@@ -119,6 +119,9 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
     print("Zahajuji odesílání")
     i = 0
     e = 0
+    m = 0
+    if udp:
+        client_soc.settimeout(2.0)
     start_time = datetime.now()
     for file in os.listdir("cache"):
         f = open(os.path.join("cache", file), "rb").read()
@@ -126,11 +129,15 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
             client_soc.sendto(f, address)
         else:
             client_soc.send(f)
-        data: bytes = client_soc.recv(4096)
-        i = i + 1
-        print(int(i/9999*1000)/10, "%")
-        if f != data:
-            e = e + 1
+        try:
+            data: bytes = client_soc.recv(4096)
+            i = i + 1
+            print(int(i/9999*1000)/10, "%")
+            if f != data:
+                e = e + 1
+        except socket.timeout:
+            m = m + 1
+
     end_time = datetime.now()
     print("Celkem bylo přeneseno", i, "balíčků")
     if udp:
@@ -139,6 +146,9 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
         print("Pomocí TCP")
     print("Z celkových", i, "balíčků dorazilo", e, "poškozených")
     print("To je chybovost", e/i*100, "%")
+    if udp:
+        print("Z celkových", i, "balíčků nedorazilo", m)
+        print("To je ztrátovost", e/i*100, "%")
     print("Celkový spotřebovaný čas činí", end_time-start_time)
     input("Pro opuštění programu stiskněte Enter")
 
@@ -148,6 +158,7 @@ def start2(client_soc: socket.socket, udp: bool = False, address=None):
     f = "1".encode('utf-8')
     j = 0
     e = 0
+    m = 0
     if udp:
         client_soc.settimeout(2.0)
     start_time = datetime.now()
@@ -163,7 +174,7 @@ def start2(client_soc: socket.socket, udp: bool = False, address=None):
             if data != f:
                 e = e + 1
         except socket.timeout:
-            e = e + 1
+            m = m + 1
     end_time = datetime.now()
     print("Celkem bylo přeneseno", "100,000", "balíčků")
     if udp:
@@ -171,7 +182,10 @@ def start2(client_soc: socket.socket, udp: bool = False, address=None):
     else:
         print("Pomocí TCP")
     print("Z celkových", 100000, "balíčků dorazilo", e, "poškozených")
-    print("To je chybovost", e / 100000 * 100, "%")
+    print("To je chybovost", e / j * 100, "%")
+    if udp:
+        print("Z celkových", 100000, "balíčků nedorazilo", m)
+        print("To je ztrátovost", e/100000*100, "%")
     print("Celkový spotřebovaný čas činí", end_time - start_time)
     input("Pro opuštění programu stiskněte Enter")
 
