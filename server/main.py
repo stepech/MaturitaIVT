@@ -4,21 +4,23 @@ DEBUG = True
 
 
 def main(serv_sock: socket.socket, udp: bool = False):
-    print("Příchozí spojení navázáno")
+    """posílá veškerou komunikaci zpátky odesílateli. Hlavní program se nachází ve složce client"""
+    print("Spouštím navraceč balíčků")
     if udp:
         while True:
-            data, address = serv_sock.recvfrom(4096)
-            print(data)
-            serv_sock.sendto(data, address)
+            try:
+                data, address = serv_sock.recvfrom(1024)
+                print(data)
+                serv_sock.sendto(data, address)
+            except ConnectionResetError:
+                pass
     else:
         while True:
-            try:
-                data = serv_sock.recv(4096)
-                if data:
-                    print(data)
-                    serv_sock.sendall(data)
-            finally:
-                serv_sock.close()
+            data = serv_sock.recv(1024)
+            if not data: break
+            print(data)
+            serv_sock.send(data)
+        serv_sock.close()
 
 
 def get_ip_port():
@@ -37,6 +39,7 @@ def get_ip_port():
 
 
 def udp_start():
+    """Provede speciální UDP handshake, aby potvrdil spojení"""
     server_ip, port = get_ip_port()
 
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -50,10 +53,12 @@ def udp_start():
         if data == "VERIFY".encode('utf-8'):
             server_sock.sendto("CONFVER".encode('utf-8'), addr)
             break
+    print("Přijato UDP připojení z", addr)
     main(server_sock, True)
 
 
 def tcp_start():
+    """Provede TCP handshake"""
 
     server_ip, port = get_ip_port()
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,11 +69,12 @@ def tcp_start():
 
     server_socket.listen(1)
     connection, address = server_socket.accept()
-
+    print("Přijato TCP připojení z", address)
     main(connection)
 
 
 if __name__ == "__main__":
+    """Inicializuje program"""
     print("Spouštím server")
     print("Zadejte číslo požadovaného módu:\n1 - TCP\n2 - UDP")
     mode: int = int(input("> "))
@@ -77,4 +83,4 @@ if __name__ == "__main__":
     elif mode == 2:
         udp_start()
     else:
-        print("Zadejte pouze číslo 1 nebo 2")
+        pass
