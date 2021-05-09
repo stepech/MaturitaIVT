@@ -49,7 +49,12 @@ def udp_start():
     server_ip, port = get_ip_port()
 
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_sock.bind((server_ip, port))
+    try:
+        server_sock.bind((server_ip, port))
+    except socket.gaierror:
+        print("Špatný formát IP adresy")
+        udp_start()
+        return
 
     print("Vytvořen UDP server na ip adrese", server_ip, "a portu", port)
     print("Vypněte server klávesovou zkratkou ctrl + C")
@@ -62,7 +67,12 @@ def tcp_start():
 
     server_ip, port = get_ip_port()
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((server_ip, port))
+    try:
+        server_socket.bind((server_ip, port))
+    except socket.gaierror:
+        print("Špatný formát IP adresy")
+        tcp_start()
+        return
 
     print("Vytvořen TCP server na ip adrese", server_ip, "a portu", port)
     print("Vypněte server klávesovou zkratkou ctrl + C")

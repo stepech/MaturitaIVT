@@ -53,13 +53,24 @@ def udp_start():
     ip, port = get_ip_port()
     payload = "VERIFY".encode('utf-8')
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_sock.sendto(payload, (ip, port))
-    data = client_sock.recv(1024)
+    data = None
+    try:
+        client_sock.sendto(payload, (ip, port))
+        data = client_sock.recv(1024)
+    except ConnectionResetError:
+        pass
+    except socket.gaierror:
+        print("Adresa zadána ve špatném formátu")
+        udp_start()
+        return
     while data != "CONFVER".encode('utf-8'):
         print("Neobdržena odpověď serveru. Je server spuštěn a vše správně zadáno?\nZkouším znova za 4 vteřiny")
         sleep(4)
         client_sock.sendto(payload, (ip, port))
-        data = client_sock.recv(1024)
+        try:
+            data = client_sock.recv(1024)
+        except ConnectionResetError:
+            continue
     print("Spojení navázáno!")
     client_sock.settimeout(2.0)
     if do_big():
@@ -72,12 +83,18 @@ def tcp_start():
     """Inicializuje TCP připojení."""
     ip, port = get_ip_port()
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        client_sock.connect((ip, port))
-    except ConnectionRefusedError:
-        print("Spojení odmítnuto serverem. Je program na server spuštěn a port správně nakonfigurován?\nZkouším znova za 4 vteřiny")
-        sleep(4)
-        client_sock.connect((ip, port))
+    while True:
+        try:
+            client_sock.connect((ip, port))
+            break
+        except ConnectionRefusedError:
+            print("Spojení odmítnuto serverem. Je program na server spuštěn a port správně nakonfigurován?\nZkouším znova za 4 vteřiny")
+            sleep(4)
+        except socket.gaierror:
+            print("Zadána špatná IP adresa")
+            tcp_start()
+            return
+
     print("Spojení navázáno")
     if do_big():
         start1(client_sock)
