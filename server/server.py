@@ -1,6 +1,6 @@
 import socket
 
-DEBUG = True
+DEBUG = False
 
 
 def main(serv_sock: socket.socket, udp: bool = False):
