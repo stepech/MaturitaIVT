@@ -1,6 +1,6 @@
 import socket
 
-DEBUG = False
+DEBUG = True
 
 
 def main(serv_sock: socket.socket, udp: bool = False):
@@ -10,7 +10,10 @@ def main(serv_sock: socket.socket, udp: bool = False):
         while True:
             try:
                 data, address = serv_sock.recvfrom(1024)
-                print("Přijmut balíček, odesílám přes UDP")
+                if data == "VERIFY".encode('utf-8'):
+                    serv_sock.sendto("CONFVER".encode('utf-8'), address)
+                    print("Přijato připojení z", address)
+                    continue
                 serv_sock.sendto(data, address)
             except ConnectionResetError:
                 pass
@@ -24,18 +27,21 @@ def main(serv_sock: socket.socket, udp: bool = False):
 
 
 def get_ip_port():
-    if not DEBUG:
-        print("Zadejte IP adresu serveru")
-        server_ip: str = input("> ")
-        print("Zadejte číslo portu na který se server naváže\nVýchozí port = 3310")
-        port: str = input("> ")
-        print(port)
-        if port == "":
-            port = "3310"
-        port: int = int(port)
-        return server_ip, port
-    else:
+    """často používaná metoda, získá od uživatele ip adresu a číslo portu"""
+    if DEBUG:
         return "127.0.0.1", 3310
+    print("Zadejte číslo portu na který se server naváže\nPro výchozí port (3310) ponechte prázdné")
+    port: str = input("> ")
+    if port == "":
+        port = "3310"
+    try:
+        port: int = int(port)
+    except ValueError:
+        print("Port může být zadán pouze číslicemi a bez mezer.\nZadejte port znovu")
+        return get_ip_port()
+    print("Zadejte IP adresu serveru")
+    server_ip: str = input("> ")
+    return server_ip, port
 
 
 def udp_start():
@@ -48,12 +54,6 @@ def udp_start():
     print("Vytvořen UDP server na ip adrese", server_ip, "a portu", port)
     print("Vypněte server klávesovou zkratkou ctrl + C")
 
-    while True:
-        data, addr = server_sock.recvfrom(1024)
-        if data == "VERIFY".encode('utf-8'):
-            server_sock.sendto("CONFVER".encode('utf-8'), addr)
-            break
-    print("Přijato UDP připojení z", addr)
     main(server_sock, True)
 
 
@@ -73,14 +73,23 @@ def tcp_start():
     main(connection)
 
 
-if __name__ == "__main__":
-    """Inicializuje program"""
+def init():
+    """Naběhne při spuštění"""
     print("Spouštím server")
     print("Zadejte číslo požadovaného módu:\n1 - TCP\n2 - UDP")
-    mode: int = int(input("> "))
+    try:
+        mode: int = int(input("> "))
+    except ValueError:
+        init()
+        return
     if mode == 1:
         tcp_start()
     elif mode == 2:
         udp_start()
     else:
-        pass
+        print("Zadejte pouze číslo 1 nebo 2")
+        init()
+
+
+if __name__ == "__main__":
+    init()

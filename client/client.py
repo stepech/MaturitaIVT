@@ -1,8 +1,9 @@
 import socket
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from time import sleep
 
-DEBUG = False
+DEBUG = True
 
 """
 ###################################
@@ -15,29 +16,36 @@ def init():
     """Naběhne při spuštění"""
     print("Spouštím klienta")
     print("Zadejte číslo požadovaného módu:\n1 - TCP\n2 - UDP")
-    mode: int = int(input("> "))
+    try:
+        mode: int = int(input("> "))
+    except ValueError:
+        init()
+        return
     if mode == 1:
         tcp_start()
     elif mode == 2:
         udp_start()
     else:
         print("Zadejte pouze číslo 1 nebo 2")
+        init()
 
 
 def get_ip_port():
     """často používaná metoda, získá od uživatele ip adresu a číslo portu"""
-    if not DEBUG:
-        print("Zadejte IP adresu serveru")
-        server_ip: str = input("> ")
-        print("Zadejte číslo portu na který se server naváže\nVýchozí port = 3310")
-        port: str = input("> ")
-        print(port)
-        if port == "":
-            port = "3310"
-        port: int = int(port)
-        return server_ip, port
-    else:
+    if DEBUG:
         return "127.0.0.1", 3310
+    print("Zadejte číslo portu na který se klient naváže\nPro výchozí port (3310) ponechte prázdné")
+    port: str = input("> ")
+    if port == "":
+        port = "3310"
+    try:
+        port: int = int(port)
+    except ValueError:
+        print("Port může být zadán pouze číslicemi a bez mezer.\nZadejte port znovu")
+        return get_ip_port()
+    print("Zadejte IP adresu serveru")
+    server_ip: str = input("> ")
+    return server_ip, port
 
 
 def udp_start():
@@ -47,20 +55,30 @@ def udp_start():
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client_sock.sendto(payload, (ip, port))
     data = client_sock.recv(1024)
-    if data == "CONFVER".encode('utf-8'):
-        print("Spojení navázáno!")
+    while data != "CONFVER".encode('utf-8'):
+        print("Neobdržena odpověď serveru. Je server spuštěn a vše správně zadáno?\nZkouším znova za 4 vteřiny")
+        sleep(4)
+        client_sock.sendto(payload, (ip, port))
+        data = client_sock.recv(1024)
+    print("Spojení navázáno!")
+    client_sock.settimeout(2.0)
     if do_big():
         start1(client_sock, True, (ip, port))
     else:
         start2(client_sock, True, (ip, port))
 
 
-
 def tcp_start():
     """Inicializuje TCP připojení."""
     ip, port = get_ip_port()
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_sock.connect((ip, port))
+    try:
+        client_sock.connect((ip, port))
+    except ConnectionRefusedError:
+        print("Spojení odmítnuto serverem. Je program na server spuštěn a port správně nakonfigurován?\nZkouším znova za 4 vteřiny")
+        sleep(4)
+        client_sock.connect((ip, port))
+    print("Spojení navázáno")
     if do_big():
         start1(client_sock)
     else:
@@ -73,7 +91,11 @@ def do_big():
                "\n1 - Množství velkých souborů" \
                "\n2 - Množství malých souborů"
     print(question)
-    choice = int(input("> "))
+    try:
+        choice = int(input("> "))
+    except ValueError:
+        print("Zadejte pouze číslice 1 nebo 2")
+        return do_big()
     if choice == 1:
         print("Spouštím odesílání velkých souborů")
         return True
@@ -81,7 +103,8 @@ def do_big():
         print("Spouštím odesílání malých souborů")
         return False
     else:
-        pass
+        print("Zadejte pouze číslice 1 nebo 2")
+        return do_big()
 
 
 """
@@ -94,8 +117,11 @@ def do_big():
 def start1(client_soc: socket.socket, udp: bool = False, address=None):
     """Funkce pro odeslání 9999 souborů o celkové velikosti 10 MB"""
 
-    for file in os.listdir("cache"):
-        os.remove(os.path.join("cache", file))
+    try:
+        for file in os.listdir("cache"):
+            os.remove(os.path.join("cache", file))
+    except FileNotFoundError:
+        os.mkdir("cache")
 
     # Vytvoření 30 souborů v /client/cache/
     for i in range(9999):
@@ -120,8 +146,6 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
     i = 0
     e = 0
     m = 0
-    if udp:
-        client_soc.settimeout(2.0)
     start_time = datetime.now()
     for file in os.listdir("cache"):
         f = open(os.path.join("cache", file), "rb").read()
@@ -139,18 +163,7 @@ def start1(client_soc: socket.socket, udp: bool = False, address=None):
             m = m + 1
 
     end_time = datetime.now()
-    print("Celkem bylo přeneseno", i, "balíčků")
-    if udp:
-        print("Pomocí UDP")
-    else:
-        print("Pomocí TCP")
-    print("Z celkových", i, "balíčků dorazilo", e, "poškozených")
-    print("To je chybovost", e/i*100, "%")
-    if udp:
-        print("Z celkových", i, "balíčků nedorazilo", m)
-        print("To je ztrátovost", e/i*100, "%")
-    print("Celkový spotřebovaný čas činí", end_time-start_time)
-    input("Pro opuštění programu stiskněte Enter")
+    p_results(udp, i, e, m, end_time - start_time)
 
 
 def start2(client_soc: socket.socket, udp: bool = False, address=None):
@@ -159,36 +172,41 @@ def start2(client_soc: socket.socket, udp: bool = False, address=None):
     j = 0
     e = 0
     m = 0
-    if udp:
-        client_soc.settimeout(2.0)
     start_time = datetime.now()
     for i in range(100000):
         if udp:
             client_soc.sendto(f, address)
         else:
             client_soc.send(f)
-        print(int(i/100000*1000)/10, "%")
         try:
             data: bytes = client_soc.recv(4096)
             j = j + 1
+            print(int(i / 100000 * 1000) / 10, "%")
             if data != f:
                 e = e + 1
         except socket.timeout:
             m = m + 1
+
     end_time = datetime.now()
-    print("Celkem bylo přeneseno", "100,000", "balíčků")
+    p_results(udp, j, e, m, end_time - start_time)
+
+
+def p_results(udp: bool, i: int, e: int, m: int, duration: timedelta):
+    print("Celkem bylo přeneseno", i, "balíčků")
     if udp:
         print("Pomocí UDP")
     else:
         print("Pomocí TCP")
-    print("Z celkových", 100000, "balíčků dorazilo", e, "poškozených")
-    print("To je chybovost", e / j * 100, "%")
-    if udp:
-        print("Z celkových", 100000, "balíčků nedorazilo", m)
-        print("To je ztrátovost", e/100000*100, "%")
-    print("Celkový spotřebovaný čas činí", end_time - start_time)
+    print("Z celkových", i, "balíčků dorazilo", e, "poškozených")
+    print("To je chybovost", e / i * 100, "%")
+    print("Z celkových", i, "balíčků nedorazilo", m)
+    print("To je ztrátovost", e / i * 100, "%")
+    print("Celkový hrubý spotřebovaný čas činí", duration)
+    if udp and m != 0:
+        # úprava aby se z výpočtu odečetla prodleva kdy program čeká na data která nepřijdou (timeout)
+        substract = timedelta(seconds=m*2)
+        print("Celkový čistý čas ciní", duration - substract)
     input("Pro opuštění programu stiskněte Enter")
-
 
 
 if __name__ == "__main__":
